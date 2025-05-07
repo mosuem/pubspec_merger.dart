@@ -3,6 +3,7 @@
 import 'dart:io';
 
 import 'package:args/args.dart';
+import 'package:path/path.dart' as path;
 import 'package:yaml/yaml.dart';
 import 'package:yaml_edit/yaml_edit.dart';
 
@@ -71,9 +72,17 @@ void processPubspecs(String localPubspecPath, String workspacePubspecPath) {
   processDependencies(localYaml, workspaceYaml, 'dev_dependencies');
   processDependencies(localYaml, workspaceYaml, 'dependency_overrides');
 
+  workspaceYaml.appendToList([
+    'workspace',
+  ], path.relative(path.dirname(localFile.path), from: workspaceFile.path));
+
   // Write the updated workspace file
-  localFile.writeAsStringSync(localYaml.toString());
-  workspaceFile.writeAsStringSync(workspaceYaml.toString());
+  localFile.writeAsStringSync(
+    SourceEdit.applyAll(localYamlContent, localYaml.edits),
+  );
+  workspaceFile.writeAsStringSync(
+    SourceEdit.applyAll(workspaceYamlContent, workspaceYaml.edits),
+  );
   writeResolution(localFile);
   print('Workspace pubspec.yaml file updated successfully.');
 }
@@ -108,7 +117,6 @@ void processDependencies(
   String dependencyType,
 ) {
   final localDependenciesPath = [dependencyType];
-  final workspaceDependenciesPath = [dependencyType];
 
   final localDependencies = localYaml.parseOrNull(localDependenciesPath);
   if (localDependencies == null) {
@@ -116,45 +124,40 @@ void processDependencies(
     return;
   }
 
-  var workspaceDependencies = workspaceYaml.parseOrNull(
-    workspaceDependenciesPath,
-  );
-  if (workspaceDependencies == null) {
-    workspaceYaml.update(workspaceDependenciesPath, <String, Object>{});
-  }
-  workspaceDependencies = workspaceYaml.parseAt(workspaceDependenciesPath);
-
   if (localDependencies is! Map) {
     throw ArgumentError(
       'Error: $dependencyType in local pubspec is not a map.',
     );
   }
-  if (workspaceDependencies is! Map) {
-    throw ArgumentError(
-      'Error: $dependencyType in workspace pubspec is not a map: $workspaceDependencies',
-    );
-  }
 
-  (localDependencies as Map).map((key, value) => MapEntry(key, value)).forEach((
-    packageName,
-    localConstraint,
-  ) {
-    final packagePath = [dependencyType, packageName as String];
-    final workspaceConstraint = workspaceYaml.parseOrNull(packagePath)?.value;
-    if (workspaceConstraint != null) {
-      if (localConstraint != workspaceConstraint) {
-        throw Exception(
-          'Conflict: $dependencyType "$packageName" has different constraints in local and workspace pubspec.yaml: local $localConstraint vs workspace $workspaceConstraint',
-        );
-      }
-    } else {
-      workspaceYaml.update(packagePath, localConstraint);
-      print(
-        'Added $dependencyType "$packageName": "$localConstraint" to workspace pubspec.yaml.',
-      );
-    }
-    localYaml.update(packagePath, 'any');
-  });
+  (localDependencies as Map)
+      .map((key, value) => MapEntry(key as String, value))
+      .forEach((packageName, localConstraint) {
+        final packagePath = [dependencyType, packageName];
+        final workspaceConstraint = workspaceYaml
+            .parseOrNull(packagePath)
+            ?.value;
+        if (workspaceConstraint != null) {
+          if (localConstraint != workspaceConstraint) {
+            throw Exception(
+              'Conflict: $dependencyType "$packageName" has different constraints in local and workspace pubspec.yaml: local "$localConstraint" vs workspace "$workspaceConstraint"',
+            );
+          }
+        } else {
+          print(
+            'Add $dependencyType "$packageName": "$localConstraint" to workspace pubspec.yaml.',
+          );
+          if (workspaceYaml.parseOrNull([dependencyType]) is Map) {
+            workspaceYaml.update(packagePath, localConstraint);
+          } else {
+            workspaceYaml.update(
+              [dependencyType],
+              {packageName: localConstraint},
+            );
+          }
+        }
+        localYaml.update(packagePath, 'any');
+      });
 }
 
 extension on YamlEditor {
