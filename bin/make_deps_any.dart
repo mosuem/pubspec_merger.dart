@@ -9,7 +9,7 @@ import 'package:yaml_edit/yaml_edit.dart';
 /// it identifies dependencies and dev_dependencies that have a version
 /// explicitly defined (not 'any') and changes their version to 'any'.
 ///
-/// Usage: dart run any_deps_converter.dart <path_to_top_level_folder>
+/// Usage: dart run any_deps_converter.dart path_to_top_level_folder
 void main(List<String> arguments) async {
   if (arguments.isEmpty) {
     print('Usage: dart run any_deps_converter.dart <path_to_top_level_folder>');

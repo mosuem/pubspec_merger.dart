@@ -88,13 +88,13 @@ void processPubspecs(String localPubspecPath, String workspacePubspecPath) {
 }
 
 void writeResolution(File localFile) {
-  final List<String> localLines = localFile.readAsLinesSync();
+  final localLines = localFile.readAsLinesSync();
   // Add 'resolution: workspace' to the local pubspec after 'environment'
   const resolutionLine = 'resolution: workspace\n';
   if (!localLines.any((line) => line.startsWith('resolution: workspace'))) {
-    bool environmentFound = false;
-    int insertIndex = -1;
-    for (int i = 0; i < localLines.length; i++) {
+    var environmentFound = false;
+    var insertIndex = -1;
+    for (var i = 0; i < localLines.length; i++) {
       if (localLines[i].startsWith('environment:')) {
         environmentFound = true;
         insertIndex = i + 3; // Insert after the environment line
@@ -162,7 +162,7 @@ void processDependencies(
 
 extension on YamlEditor {
   YamlNode? parseOrNull(List<String> path) {
-    final YamlNode parsed = parseAt(path, orElse: () => wrapAsYamlNode(null));
+    final parsed = parseAt(path, orElse: () => wrapAsYamlNode(null));
     return parsed.value != null ? parsed : null;
   }
 }
